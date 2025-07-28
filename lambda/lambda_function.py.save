@@ -1,0 +1,16 @@
+import json
+import datetime
+
+def lambda_handler(event, context):
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    
+    report = {
+        "date": today,
+        "message": "Daily report generated successfully"
+    }
+    
+    return {
+        "statusCode": 200,
+        "body": json.dumps(report)
+    }
+

@@ -1,0 +1,51 @@
+provider "aws" {
+  region = "us-east-1"
+}
+
+# Create one S3 bucket for raw data
+resource "aws_s3_bucket" "raw" {
+  bucket = "my-simple-raw-data-bucket"
+}
+
+# IAM role for Lambda
+resource "aws_iam_role" "lambda_role" {
+  name = "simple-lambda-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Effect = "Allow",
+      Principal = { Service = "lambda.amazonaws.com" },
+      Action = "sts:AssumeRole"
+    }]
+  })
+}
+
+# Lambda function (upload lambda.zip later)
+resource "aws_lambda_function" "processor" {
+  function_name = "simple-data-processor"
+  role          = aws_iam_role.lambda_role.arn
+  handler       = "lambda_function.lambda_handler"
+  runtime       = "python3.9"
+  filename      = "lambda.zip"
+}
+
+# EventBridge rule for daily trigger
+resource "aws_cloudwatch_event_rule" "daily" {
+  name                = "daily-trigger"
+  schedule_expression = "cron(0 0 * * ? *)"
+}
+
+# Link EventBridge to Lambda
+resource "aws_cloudwatch_event_target" "lambda_target" {
+  rule      = aws_cloudwatch_event_rule.daily.name
+  target_id = "lambda-target"
+  arn       = aws_lambda_function.processor.arn
+}
+
+resource "aws_lambda_permission" "allow_eventbridge" {
+  statement_id  = "AllowEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.processor.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.daily.arn
+}
